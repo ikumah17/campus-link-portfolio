@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { connection } from "next/server";
 import { SkipLink } from "@/components/skip-link";
+import { DemoDisclaimer } from "@/components/demo-disclaimer";
 import "./globals.css";
 import { DemoLikesProvider } from "@/components/demo-likes-provider";
 import { DemoChatProvider } from "@/components/demo-chat-provider";
@@ -28,6 +29,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="ja">
       <body>
         <SkipLink />
+        <DemoDisclaimer />
         <DemoPrivacyProvider><DemoLikesProvider><DemoChatProvider><DemoSafetyProvider><DemoDiscoverProvider>{children}</DemoDiscoverProvider></DemoSafetyProvider></DemoChatProvider></DemoLikesProvider></DemoPrivacyProvider>
       </body>
     </html>

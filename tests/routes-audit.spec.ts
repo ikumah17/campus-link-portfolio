@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readdirSync } from "node:fs";
 import { join, relative, sep } from "node:path";
+import { demoDisclaimer } from "../src/components/demo-disclaimer";
 
 // One seeded id per dynamic route; existing profile-detail/talk specs cover 404s.
 const verificationDetailRoute = "/admin/verifications/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -66,6 +67,11 @@ for (const route of routes) {
       await expect(page.locator("h1")).toHaveCount(1);
       await expect(page.locator("h1")).toBeVisible();
       await expect(page.getByRole("main")).toHaveCount(1);
+      // The demo disclaimer is on every page, once, as plain text outside main.
+      const disclaimer = page.getByText(demoDisclaimer, { exact: true });
+      await expect(disclaimer).toHaveCount(1);
+      await expect(disclaimer).toBeVisible();
+      expect(await disclaimer.evaluate((element) => element.closest("main") === null)).toBe(true);
       const skip = page.getByRole("link", { name: "本文へスキップ" });
       // Onboarding intentionally focuses its step heading after hydration.
       // Reach the shared skip link by keyboard even when focus starts there.
