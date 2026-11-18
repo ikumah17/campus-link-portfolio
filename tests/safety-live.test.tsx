@@ -1,0 +1,43 @@
+import {render,screen,fireEvent,waitFor,within} from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import {it,expect,vi,beforeEach,afterEach} from "vitest";
+const m=vi.hoisted(()=>({act:vi.fn()}));
+vi.mock("@/server/safety-actions",()=>({blockProfile:m.act,blockConversation:m.act,unblockUser:m.act,reportProfile:m.act,reportConversation:m.act,reportMessage:m.act}));
+import {SafetyControlsLive} from "@/components/safety-controls-live";
+import {BlocksSettingsLive} from "@/components/blocks-settings-live";
+const network=vi.spyOn(globalThis,"fetch").mockRejectedValue(Error("no network"));
+beforeEach(()=>{vi.clearAllMocks();m.act.mockResolvedValue({status:"ok"});});afterEach(()=>expect(network).not.toHaveBeenCalled());
+it("report has private accessible name, reason controls, limits, completed guard and focus return",async()=>{
+ const v=render(<SafetyControlsLive kind="message" id="conversation" message={{id:1,body:"private body",time:"12:00"}}/>);const trigger=screen.getByRole("button",{name:"メッセージを通報 12:00"});expect(trigger).not.toHaveAccessibleName(/private body/);trigger.focus();fireEvent.click(trigger);expect(screen.getByRole("dialog")).toHaveAccessibleName("通報");expect(screen.getByText("private body")).toBeInTheDocument();fireEvent.change(screen.getByRole("textbox"),{target:{value:"😀".repeat(1001)}});expect(screen.getByRole("button",{name:"通報する"})).toBeDisabled();fireEvent.change(screen.getByRole("textbox"),{target:{value:"detail"}});fireEvent.click(screen.getByRole("button",{name:"通報する"}));await screen.findByText("通報を受け付けました。");expect(m.act).toHaveBeenCalledWith("conversation",1,"harassment","detail");expect(screen.getByRole("textbox")).toBeDisabled();fireEvent.click(screen.getByText("閉じる"));await waitFor(()=>expect(trigger).toHaveFocus());expect(v.container.textContent).not.toMatch(/架空|デモ/);
+});
+it("conversation menu blocks once with in-flight guard",async()=>{let resolve!:(r:{status:string})=>void;m.act.mockReturnValue(new Promise(r=>resolve=r));const blocked=vi.fn();render(<SafetyControlsLive kind="conversation" id="conversation" block onBlocked={blocked}/>);fireEvent.click(screen.getByText("ブロック・通報"));fireEvent.click(screen.getByText("ブロック"));fireEvent.click(screen.getByText("ブロックする"));fireEvent.click(screen.getByText("ブロックする"));expect(m.act).toHaveBeenCalledTimes(1);expect(screen.getByText("キャンセル")).toBeDisabled();resolve({status:"ok"});await waitFor(()=>expect(blocked).toHaveBeenCalledOnce());});
+it.each(["validation","not_available","rate_limited","unauthenticated","unavailable"])("shows fixed refusal %s",async status=>{m.act.mockResolvedValue({status});render(<SafetyControlsLive kind="profile" id="person"/>);fireEvent.click(screen.getByText("通報"));fireEvent.click(screen.getByText("通報する"));await waitFor(()=>expect(screen.getByRole("status")).not.toBeEmptyDOMElement());fireEvent.keyDown(screen.getByRole("dialog"),{key:"Escape"});expect(screen.queryByRole("dialog")).toBeNull();});
+it("settings use snapshots and status labels without IDs or counts",()=>{const {container}=render(<BlocksSettingsLive blocks={[{key:"a".repeat(64),name:null,createdAt:"2026-11-07"}]} reports={[{createdAt:"2026-11-07",status:"triaged"}]}/>);expect(screen.getByText("表示できないユーザー")).toBeInTheDocument();expect(screen.getByText("確認中")).toBeInTheDocument();expect(container.innerHTML).not.toContain("a".repeat(64));fireEvent.click(screen.getByText("ブロックを解除"));expect(screen.getByText("ブロックを解除しても、消えたいいねや終了したつながりは元に戻りません。")).toBeInTheDocument();});
+it("settings empty states",()=>{render(<BlocksSettingsLive blocks={[]} reports={[]}/>);expect(screen.getByText("ブロック中のユーザーはいません。")).toBeInTheDocument();expect(screen.getByText("通報の履歴はありません。")).toBeInTheDocument();});
+
+it.each(["block","report","unblock"])("contains focus in both directions during pending %s and restores it after completion",async operation=>{
+ const user=userEvent.setup({delay:null});
+ let resolve!:(r:{status:string})=>void;
+ m.act.mockReturnValue(new Promise(r=>resolve=r));
+ const {container}=render(<><button>Background</button><section><SafetyControlsLive kind="profile" id="target" block={operation==="block"} unblock={operation==="unblock"}/></section></>);
+ const background=screen.getByRole("button",{name:"Background"});
+ const trigger=screen.getByRole("button",{name:operation==="block"?"ブロック":operation==="report"?"通報":"ブロックを解除"});
+ await user.click(trigger);
+ const dialog=screen.getByRole("dialog");
+ expect(background.inert).toBe(true);
+ await user.click(within(dialog).getByRole("button",{name:operation==="block"?"ブロックする":operation==="report"?"通報する":"ブロックを解除"}));
+ expect(dialog).toHaveFocus();
+ await user.tab();expect(dialog).toHaveFocus();
+ await user.tab({shift:true});expect(dialog).toHaveFocus();
+ await user.keyboard("{Escape}");expect(dialog).toBeInTheDocument();
+ expect(m.act).toHaveBeenCalledTimes(1);
+ resolve({status:"ok"});
+ await screen.findByRole("button",{name:"閉じる"});
+ await user.tab();expect(dialog.contains(document.activeElement)).toBe(true);
+ await user.tab({shift:true});expect(dialog.contains(document.activeElement)).toBe(true);
+ await user.click(screen.getByRole("button",{name:"閉じる"}));
+ await waitFor(()=>expect(trigger).toHaveFocus());
+ expect(background.inert).not.toBe(true);
+ expect(container.querySelector('[role="dialog"]')).toBeNull();
+});
+it("settings show dates in Tokyo time",()=>{render(<BlocksSettingsLive blocks={[{key:"b".repeat(64),name:"Aoi",createdAt:"2026-11-06T20:00:00Z"}]} reports={[{createdAt:"2026-11-06T16:00:00Z",status:"open"}]}/>);expect(screen.getAllByText("2026/11/07")).toHaveLength(2);});

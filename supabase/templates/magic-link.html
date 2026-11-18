@@ -1,0 +1,16 @@
+<!-- Subject: 【Campus Link】ログイン用リンク -->
+<!-- Supabase "Magic Link" template. The link goes only through the app's /auth/confirm route (type=email). -->
+<!doctype html>
+<html lang="ja">
+  <body style="margin:0;padding:0;background-color:#ffffff;color:#111111;font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif;">
+    <div style="max-width:480px;margin:0 auto;padding:48px 24px;">
+      <p style="margin:0 0 32px;font-size:15px;font-weight:600;letter-spacing:0.02em;color:#111111;">Campus Link</p>
+      <p style="margin:0 0 16px;font-size:15px;line-height:1.8;color:#111111;">下のボタンから Campus Link にログインできます。</p>
+      <p style="margin:32px 0;">
+        <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email" style="display:inline-block;padding:12px 28px;background-color:#111111;color:#ffffff;font-size:15px;text-decoration:none;border-radius:999px;">ログイン</a>
+      </p>
+      <p style="margin:0 0 12px;font-size:13px;line-height:1.8;color:#555555;">このリンクを開いた人がこのアカウントにログインします。リンクは他の人に転送しないでください。</p>
+      <p style="margin:0;font-size:13px;line-height:1.8;color:#555555;">このメールに心当たりがない場合は、何もせずに破棄してください。</p>
+    </div>
+  </body>
+</html>

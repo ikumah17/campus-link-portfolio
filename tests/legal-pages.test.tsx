@@ -1,0 +1,36 @@
+import { render, screen } from "@testing-library/react";
+import { expect, it } from "vitest";
+import Terms from "@/app/terms/page";
+import Privacy from "@/app/privacy/page";
+it("terms draft", () => {
+ const { container } = render(<Terms />);
+ expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("利用規約（草案）");
+ expect(screen.getByText("この文書は公開前の草案です。正式な公開までに内容を確認し、改定します。")).toBeVisible();
+ expect(screen.getByText("最終更新：2026年11月9日")).toBeVisible();
+ expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
+ expect(screen.getByRole("heading", { level: 2, name: "第1条 対象" })).toBeVisible();
+ expect(screen.getByRole("heading", { level: 2, name: "第2条 アカウント" })).toBeVisible();
+ expect(screen.getByRole("heading", { level: 2, name: "第3条 年齢確認・在学確認" })).toBeVisible();
+ expect(screen.getByRole("heading", { level: 2, name: "第4条 禁止事項" })).toBeVisible();
+ expect(screen.getByRole("heading", { level: 2, name: "第5条 ブロック・通報" })).toBeVisible();
+ expect(screen.getByRole("heading", { level: 2, name: "第6条 利用停止・退会" })).toBeVisible();
+ expect(screen.getByRole("heading", { level: 2, name: "第7条 免責・規約の変更・準拠法" })).toBeVisible();
+ expect(container.textContent).not.toMatch(/@|0\d{1,4}[-ー]\d{1,4}[-ー]\d{3,4}/);
+});
+it("privacy draft", () => {
+ const { container } = render(<Privacy />);
+ expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("プライバシーポリシー（草案）");
+ expect(screen.getByText("この文書は公開前の草案です。正式な公開までに内容を確認し、改定します。")).toBeVisible();
+ expect(screen.getByText("最終更新：2026年11月9日")).toBeVisible();
+ expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
+ expect(screen.getByRole("heading", { level: 2, name: "第1条 取得する情報" })).toBeVisible();
+ expect(screen.getByRole("heading", { level: 2, name: "第2条 利用目的" })).toBeVisible();
+ expect(screen.getByRole("heading", { level: 2, name: "第3条 公開範囲" })).toBeVisible();
+ expect(screen.getByRole("heading", { level: 2, name: "第4条 第三者提供" })).toBeVisible();
+ expect(screen.getByRole("heading", { level: 2, name: "第5条 委託先" })).toBeVisible();
+ expect(screen.getByRole("heading", { level: 2, name: "第6条 保存期間" })).toBeVisible();
+ expect(screen.getByRole("heading", { level: 2, name: "第7条 開示・訂正・削除の請求" })).toBeVisible();
+ expect(screen.getByRole("heading", { level: 2, name: "第8条 安全管理" })).toBeVisible();
+ expect(screen.getByRole("heading", { level: 2, name: "第9条 改定" })).toBeVisible();
+ expect(container.textContent).not.toMatch(/@|0\d{1,4}[-ー]\d{1,4}[-ー]\d{3,4}/);
+});

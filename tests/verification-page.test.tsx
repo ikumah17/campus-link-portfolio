@@ -1,0 +1,14 @@
+import { afterEach, expect, it, vi } from "vitest";
+import { render, screen, cleanup } from "@testing-library/react";
+const m = vi.hoisted(() => ({ mode: vi.fn(), create: vi.fn(), load: vi.fn(), redirect: vi.fn(() => { throw new Error("redirect"); }) }));
+vi.mock("server-only", () => ({}));
+vi.mock("@/lib/backend", () => ({ backendMode: m.mode }));
+vi.mock("@/lib/supabase/server", () => ({ createServerSupabase: m.create }));
+vi.mock("@/server/verification-data", () => ({ loadMyVerification: m.load }));
+vi.mock("next/navigation", () => ({ redirect: m.redirect }));
+vi.mock("@/components/verification", () => ({ Verification: () => <p>demo component</p> }));
+vi.mock("@/components/verification-live", () => ({ VerificationLive: () => <p>live component</p> }));
+import Page from "@/app/verification/page";
+afterEach(() => { cleanup(); vi.clearAllMocks(); });
+it("keeps demo branch without client", async () => { m.mode.mockReturnValue("demo"); render(await Page()); expect(screen.getByText("demo component")).toBeInTheDocument(); expect(m.create).not.toHaveBeenCalled(); });
+it("renders live and unavailable branches, and redirects outside catch", async () => { const fetchSpy = vi.spyOn(globalThis, "fetch"); m.mode.mockReturnValue("supabase"); m.load.mockResolvedValue({ status: "ok" }); render(await Page()); expect(screen.getByText("live component")).toBeInTheDocument(); cleanup(); m.load.mockResolvedValue({ status: "unavailable" }); render(await Page()); expect(screen.getByRole("alert")).toHaveTextContent("現在表示できません。"); cleanup(); m.create.mockRejectedValueOnce(new Error("private")); render(await Page()); expect(screen.getByRole("alert")).not.toHaveTextContent("private"); m.load.mockResolvedValue({ status: "unauthenticated" }); await expect(Page()).rejects.toThrow("redirect"); expect(m.redirect).toHaveBeenCalledWith("/login?next=/verification"); expect(fetchSpy).not.toHaveBeenCalled(); fetchSpy.mockRestore(); });

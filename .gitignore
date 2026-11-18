@@ -1,0 +1,23 @@
+node_modules/
+.next/
+out/
+next-env.d.ts.bak
+test-results/
+playwright-report/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.vercel/
+.supabase/
+*.pem
+__pycache__/
+
+# hosted E2E credentials (fictional test accounts; never commit)
+.e2e-hosted.local.json
+.e2e-hosted/
+
+# MOBILE-001: Expo output and generated files (mobile/)
+mobile/.expo/
+mobile/dist/
+mobile/expo-env.d.ts

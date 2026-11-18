@@ -1,0 +1,42 @@
+﻿import { afterEach, beforeEach, expect, it, vi } from "vitest";
+const m=vi.hoisted(()=>({mode:'supabase',create:vi.fn(),get:vi.fn(),list:vi.fn(),eligible:vi.fn(),master:vi.fn(),gate:vi.fn()}));
+vi.mock('server-only',()=>({}));
+vi.mock('@/lib/backend',()=>({backendMode:()=>m.mode}));
+vi.mock('@/lib/supabase/server',()=>({createServerSupabase:m.create}));
+vi.mock('@/server/profile-gate',()=>({profileGate:m.gate}));
+vi.mock('@/server/affiliation-master',()=>({loadAffiliationMaster:m.master}));
+vi.mock('@/server/discover-data',async importOriginal=>({...await importOriginal<object>(),getProfile:m.get,listProfiles:m.list,viewerEligible:m.eligible}));
+vi.mock('next/navigation',()=>({notFound:()=>{throw new Error('404')},redirect:(url:string)=>{throw new Error(url)}}));
+vi.mock('@/components/discover',()=>({Discover:()=>null}));
+vi.mock('@/components/profile-detail',()=>({ProfileDetail:()=>null}));
+import Detail,{generateMetadata,generateStaticParams} from '@/app/profiles/[id]/page';
+import Home from '@/app/page';
+import Search from '@/app/search/page';
+const id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const props=(value=id)=>({params:Promise.resolve({id:value}),searchParams:Promise.resolve({mode:'friends'})});
+const fetchSpy=vi.spyOn(globalThis,"fetch").mockRejectedValue(new Error("network forbidden"));
+beforeEach(()=>{m.gate.mockResolvedValue('completed')});
+afterEach(()=>{expect(fetchSpy).not.toHaveBeenCalled();vi.clearAllMocks();m.mode='supabase'});
+it('rejects invalid live ids before client creation and keeps metadata fixed',async()=>{
+  await expect(Detail(props('bad'))).rejects.toThrow('404');expect(m.create).not.toHaveBeenCalled();
+  expect(await generateMetadata(props())).toEqual({title:'プロフィール | Campus Link'});expect(m.get).not.toHaveBeenCalled();expect(generateStaticParams()).toEqual([]);
+});
+it('uses identical 404 for missing or refused profiles',async()=>{m.get.mockResolvedValue({status:'ok',profile:null});await expect(Detail(props())).rejects.toThrow('404')});
+it('redirects unauthenticated detail and handles failure',async()=>{m.get.mockResolvedValue({status:'unauthenticated'});await expect(Detail(props())).rejects.toThrow('/login?next=');m.get.mockResolvedValue({status:'unavailable'});expect(await Detail(props())).toBeTruthy()});
+it('preserves unknown demo 404',async()=>{m.mode='demo';await expect(Detail(props('unknown'))).rejects.toThrow('404')});
+it('gates list access and ignores invalid cursors',async()=>{
+ m.gate.mockResolvedValue('completed');m.eligible.mockResolvedValue(false);await Home({searchParams:Promise.resolve({})});expect(m.list).not.toHaveBeenCalled();
+ m.eligible.mockResolvedValue(true);m.master.mockResolvedValue([{id:'school',name:'大学',departments:[]}]);m.list.mockResolvedValue({status:'ok',profiles:[],nextAfter:null});await Home({searchParams:Promise.resolve({after:'invalid',s:'unknown'})});expect(m.list).toHaveBeenCalledWith(undefined,expect.objectContaining({after:undefined,schoolIds:[]}));
+});
+it.each(['incomplete','unauthenticated'])('redirects home gate %s',async gate=>{m.gate.mockResolvedValue(gate);await expect(Home({searchParams:Promise.resolve({})})).rejects.toThrow(gate==='incomplete'?'/onboarding':'/login')});
+it('fails closed on missing master and handles demo search',async()=>{m.master.mockResolvedValue(null);expect(await Search({searchParams:Promise.resolve({})})).toBeTruthy();m.mode='demo';expect(await Search({searchParams:Promise.resolve({s:'unknown'})})).toBeTruthy()});
+
+it.each(["unauthenticated","unavailable"])("handles eligibility %s",async status=>{m.gate.mockResolvedValue("completed");m.eligible.mockResolvedValue({status});if(status==="unauthenticated") await expect(Home({searchParams:Promise.resolve({})})).rejects.toThrow("/login");else expect(await Home({searchParams:Promise.resolve({})})).toBeTruthy()});
+it.each(["unauthenticated","unavailable"])("handles list %s",async status=>{m.gate.mockResolvedValue("completed");m.eligible.mockResolvedValue(true);m.master.mockResolvedValue([]);m.list.mockResolvedValue({status});if(status==="unauthenticated") await expect(Home({searchParams:Promise.resolve({})})).rejects.toThrow("/login");else expect(await Home({searchParams:Promise.resolve({})})).toBeTruthy()});
+it("passes only school ids and names to live search",async()=>{m.master.mockResolvedValue([{id:"school",name:"University",departments:[{id:"private"}]}]);const view=await Search({searchParams:Promise.resolve({s:["school","unknown"]})});expect(view.props.schools).toEqual([{id:"school",name:"University"}]);expect(view.props.initialConditions.schoolIds).toEqual(["school"])});
+it('shows search and detail only the fixed view when the gate is unavailable (deleted included), before any data read',async()=>{m.gate.mockResolvedValue('unavailable');m.master.mockResolvedValue([{id:'school',name:'大学',departments:[]}]);m.get.mockResolvedValue({status:'ok',profile:{id}});
+ const search=await Search({searchParams:Promise.resolve({})});expect(search.props.children.props.role).toBe('alert');
+ const detail=await Detail(props());expect(detail.props.children.props.role).toBe('alert');expect(m.master).not.toHaveBeenCalled();expect(m.get).not.toHaveBeenCalled()});
+it('redirects search and detail by gate',async()=>{m.gate.mockResolvedValue('incomplete');await expect(Search({searchParams:Promise.resolve({})})).rejects.toThrow('/onboarding');await expect(Detail(props())).rejects.toThrow('/onboarding');
+ m.gate.mockResolvedValue('unauthenticated');await expect(Search({searchParams:Promise.resolve({})})).rejects.toThrow('/login?next=%2Fsearch');await expect(Detail(props())).rejects.toThrow(`/login?next=${encodeURIComponent(`/profiles/${id}`)}`);expect(m.master).not.toHaveBeenCalled();expect(m.get).not.toHaveBeenCalled()});
+it('keeps demo search and detail off the gate',async()=>{m.mode='demo';await Search({searchParams:Promise.resolve({})});await expect(Detail(props('unknown'))).rejects.toThrow('404');expect(m.gate).not.toHaveBeenCalled();expect(m.create).not.toHaveBeenCalled()});

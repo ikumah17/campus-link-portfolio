@@ -1,0 +1,43 @@
+﻿import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, expect, it, vi } from "vitest";
+import { SearchConditionsForm } from "@/components/search-conditions";
+import { Discover } from "@/components/discover";
+import { demoAffiliations } from "@/data/demo-affiliations";
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+beforeEach(() => { window.history.replaceState(null, "", "/search"); push.mockClear(); });
+it("validates inline, focuses first error, then submits repeated filters without a mode", async () => {
+  window.history.replaceState(null, "", "/search?mode=friends");
+  const user = userEvent.setup({ delay: null }); render(<SearchConditionsForm />);
+  const min = screen.getByLabelText("下限年齢"), max = screen.getByLabelText("上限年齢");
+  await user.type(min, "17"); await user.type(max, "121"); await user.click(screen.getByRole("button", { name: "この条件で探す" }));
+  expect(min).toHaveFocus(); expect(screen.getAllByRole("alert")).toHaveLength(2); expect(push).not.toHaveBeenCalled();
+  await user.clear(min); await user.type(min, "25"); await user.clear(max); await user.type(max, "20");
+  await user.click(screen.getByRole("button", { name: "この条件で探す" })); expect(min).toHaveFocus(); expect(screen.getByRole("alert")).toHaveTextContent("下限は上限以下");
+  await user.clear(min); await user.type(min, "18");
+  await user.click(screen.getByLabelText("女性")); await user.click(screen.getByLabelText("その他")); await user.click(screen.getByLabelText(demoAffiliations[0].name));
+  await user.click(screen.getByRole("button", { name: "この条件で探す" }));
+  const url = new URL(push.mock.calls[0][0], "http://demo.local");
+  expect(url.pathname).toBe("/"); expect(url.searchParams.getAll("g")).toEqual(["female", "other"]); expect(url.searchParams.get("mode")).toBeNull();
+});
+it("restores valid URL conditions, clears fields and errors, and drops a stale mode", async () => {
+  window.history.replaceState(null, "", "/search?mode=friends&min=20&g=female&g=unknown");
+  const user = userEvent.setup({ delay: null }); render(<SearchConditionsForm />);
+  expect(screen.getByLabelText("下限年齢")).toHaveValue(20); expect(screen.getByLabelText("女性")).toBeChecked();
+  await user.click(screen.getByRole("button", { name: "条件をクリア" }));
+  expect(screen.getByLabelText("下限年齢")).toHaveValue(null); expect(screen.getByLabelText("女性")).not.toBeChecked(); expect(window.location.search).toBe(""); expect(screen.getByLabelText("下限年齢")).toHaveFocus();
+  expect(screen.getAllByRole("checkbox")).toHaveLength(5);
+  expect(screen.getByText("学科・クラスでの絞り込みはプライバシー保護のため提供していません。")).toBeInTheDocument();
+});
+it("shows active chips, links the filters to the search page, and clears an empty result", async () => {
+  window.history.replaceState(null, "", "/?min=90&g=female");
+  const user = userEvent.setup({ delay: null }); render(<Discover />);
+  expect(await screen.findByText("条件に合うプロフィールはありません")).toBeInTheDocument();
+  expect(screen.getByText("90〜120歳")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "検索条件" })).toHaveAttribute("href", "/search?min=90&g=female");
+  await user.click(screen.getByRole("button", { name: "条件をクリア" }));
+  await waitFor(() => expect(screen.getAllByRole("article")).toHaveLength(3));
+  expect(window.location.search).toBe(""); expect(screen.queryByText("90〜120歳")).not.toBeInTheDocument();
+  expect(document.body.textContent).not.toMatch(/\d+件/);
+});
