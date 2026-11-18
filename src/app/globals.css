@@ -30,6 +30,14 @@ body {
   outline-offset: 3px;
 }
 
+/* A full-height screen (the chat room) fills the viewport below whatever precedes it, such as the demo
+   disclaimer. Without anything before it, it is exactly the viewport height, as with h-dvh. */
+body:has(> .fill-viewport) {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
 /* The skip link target only receives focus programmatically; outlining the whole page adds no information. */
 main[tabindex="-1"]:focus {
   outline: none;

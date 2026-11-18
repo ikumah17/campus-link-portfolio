@@ -79,3 +79,32 @@ test("unknown and inaccessible rooms share an unavailable view", async ({ page }
     await expect(page.getByRole("link", { name: "トーク一覧へ戻る" })).toHaveAttribute("href", "/talk");
   }
 });
+
+// The chat room fills the height left under the demo disclaimer, so the message box stays on screen
+// without page scrolling. Without the disclaimer (the hosted backend) it is exactly the viewport height.
+for (const [width, height] of [[375, 812], [768, 1024], [1440, 900]]) {
+  test(`chat room keeps the message box on screen below the disclaimer at ${width}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await page.goto("/talk/demo-4");
+    const main = page.getByRole("main");
+    const disclaimer = page.getByText(/^個人制作のデモです。/);
+    const input = page.getByRole("textbox", { name: "メッセージ" });
+    const send = page.getByRole("button", { name: "送信", exact: true });
+    const pageScroll = () => page.evaluate(() => document.documentElement.scrollHeight - innerHeight);
+    await expect(disclaimer).toBeVisible();
+    await expect(input).toBeInViewport({ ratio: 1 });
+    await expect(send).toBeInViewport({ ratio: 1 });
+    expect(await pageScroll()).toBeLessThanOrEqual(0);
+    const top = (await disclaimer.boundingBox())!, room = (await main.boundingBox())!;
+    expect(Math.abs(room.y - (top.y + top.height))).toBeLessThan(1);
+    expect(Math.abs(room.y + room.height - height)).toBeLessThan(1);
+    expect(Math.abs(room.width - Math.min(width, 672))).toBeLessThan(1);
+
+    await disclaimer.evaluate((element) => element.remove());
+    const alone = (await main.boundingBox())!;
+    expect(Math.abs(alone.y)).toBeLessThan(1);
+    expect(Math.abs(alone.height - height)).toBeLessThan(1);
+    await expect(input).toBeInViewport({ ratio: 1 });
+    expect(await pageScroll()).toBeLessThanOrEqual(0);
+  });
+}

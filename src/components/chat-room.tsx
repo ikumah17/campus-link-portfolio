@@ -76,10 +76,10 @@ export function ChatRoom({ id }: { id: string }) {
   const back = <Link href={"/talk"} className={textLink}>トーク一覧へ戻る</Link>;
   if (conversation === undefined) return <main id={MAIN_CONTENT_ID} tabIndex={-1} className={standalonePage}><p role="status" className={loadingText}>読み込み中</p></main>;
   if (conversation === null || (state.blocks?.some((b) => b.blocked_id === id) && !blockOpen)) return <main id={MAIN_CONTENT_ID} tabIndex={-1} className={standalonePage}><h1 className={pageTitle}>この会話は表示できません</h1><div className="mt-6">{back}</div><p className={noticeText}>{CHAT_NOTICE}</p></main>;
-  return <><main inert={safetyMenu || blockOpen || report !== null} id={MAIN_CONTENT_ID} tabIndex={-1} className="mx-auto flex h-dvh max-w-2xl flex-col bg-white px-4 text-ink sm:px-8">
+  return <><main inert={safetyMenu || blockOpen || report !== null} id={MAIN_CONTENT_ID} tabIndex={-1} className="fill-viewport mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col bg-white px-4 text-ink sm:px-8">
     <header className="shrink-0 py-3">{back}<div className="flex flex-wrap items-center justify-between gap-2"><h1 className="text-xl font-medium">{conversation.partner.name}</h1><button ref={safetyTrigger} type="button" onClick={() => setSafetyMenu(true)} className={secondaryButton}>ブロック・通報</button></div><p className="mt-2 text-xs leading-5 text-muted">{CHAT_NOTICE}</p></header>
     <div className="min-h-14 shrink-0 py-1">{hasOlder && <button className={secondaryButton} type="button" disabled={loadingOlder} onClick={older}>以前のメッセージ</button>}</div>
-    <div ref={log} role="log" aria-label="会話履歴" aria-live="polite" tabIndex={0} className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-3 [overflow-anchor:none]">
+    <div ref={log} role="log" aria-label="会話履歴" aria-live="polite" tabIndex={0} className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain py-3 [overflow-anchor:none]">
       {messages.length === 0 && <p className="text-sm text-muted">まだメッセージはありません。</p>}
       <ol className="space-y-4">{messages.map((m) => {
         const own = m.sender !== id;
